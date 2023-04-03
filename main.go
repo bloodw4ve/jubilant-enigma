@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -73,6 +73,8 @@ func (p *PipeLineInt) runStageInt(stage StageInt, sourceChan <-chan int) <-chan 
 	return stage(p.done, sourceChan)
 }
 func main() {
+	infoLog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
+	errorLog := log.New(os.Stderr, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
 	dataSource := func() (<-chan int, <-chan bool) {
 		c := make(chan int)
 		done := make(chan bool)
@@ -84,14 +86,15 @@ func main() {
 				scanner.Scan()
 				data = scanner.Text()
 				if strings.EqualFold(data, "exit") {
-					fmt.Println("Программа завершила работу!")
+					infoLog.Printf("Program exited...")
 					return
 				}
 				i, err := strconv.Atoi(data)
 				if err != nil {
-					fmt.Println("Программа обрабатывает только целые числа!")
+					errorLog.Printf("Invalid input")
 					continue
 				}
+				infoLog.Printf("Recieved data")
 				c <- i
 			}
 		}()
@@ -106,6 +109,7 @@ func main() {
 					if data > 0 {
 						select {
 						case convertedIntChan <- data:
+							infoLog.Printf("Data passed through negative filter: %d\n", data)
 						case <-done:
 							return
 						}
@@ -126,6 +130,7 @@ func main() {
 					if data != 0 && data%3 == 0 {
 						select {
 						case filteredIntChan <- data:
+							infoLog.Printf("Data passed through special filter: %d/n", data)
 						case <-done:
 							return
 						}
@@ -145,6 +150,7 @@ func main() {
 				select {
 				case data := <-c:
 					buffer.Push(data)
+					infoLog.Printf("Data pushed to buffer: %d\n", data)
 				case <-done:
 					return
 				}
@@ -159,6 +165,7 @@ func main() {
 						for _, data := range bufferData {
 							select {
 							case bufferedIntChan <- data:
+								infoLog.Printf("Data passed through buffer: %d\n", data)
 							case <-done:
 								return
 							}
@@ -175,7 +182,7 @@ func main() {
 		for {
 			select {
 			case data := <-c:
-				fmt.Printf("Обработаны данные: %d\n", data)
+				infoLog.Printf("Data processed by consumer: %d\n", data)
 			case <-done:
 				return
 			}
